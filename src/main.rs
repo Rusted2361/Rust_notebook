@@ -77,9 +77,70 @@ fn delete_file(id: &str) -> io::Result<String> {
 
 #[tokio::main]
 async fn main() {
+    let custom_welcome_message = "Welcome to My Rocket Server!";
+    println!("{}",custom_welcome_message);
     build()
         .mount("/", routes![get_notes, create_or_update_note, delete_note])
         .launch()
         .await
         .expect("Rocket failed to launch");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rocket::local::blocking::Client;
+    use rocket::http::{Status};
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn test_all_operations() {
+        // Create note
+        let rocket = build().mount("/", routes![create_or_update_note]);
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+
+        let response = client
+            .post("/create-update/test_note")
+            .body("Test note content")
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.into_string().expect("response body"),
+            "Note test_note created/updated successfully"
+        );
+       
+
+        //delay
+        thread::sleep(Duration::from_secs(1));
+
+        // Read notes
+        let rocket = build().mount("/", routes![get_notes]);
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+
+        let response = client.get("/read-notes").dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.into_string().expect("response body"),
+            "Test note content\n---\n"
+        );
+    
+        // delay 
+        thread::sleep(Duration::from_secs(1));
+
+        // Delete note
+        let rocket = build().mount("/", routes![delete_note]);
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+
+        let response = client.post("/delete-notes/test_note").dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.into_string().expect("response body"),
+            "Note test_note deleted successfully"
+        );
+     
+    }
 }
